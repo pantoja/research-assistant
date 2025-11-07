@@ -16,7 +16,9 @@ This allows the model to answer questions using your specific documents rather t
 - 📚 Index multiple PDF papers
 - 🔍 Semantic search using embeddings
 - 💡 Context-aware answers with source citations
-- 🗨️ Interactive chat mode
+- 🗨️ Interactive chat mode (CLI and Web UI)
+- 🌐 Streamlit web interface with chat history
+- 📄 Source document citations for every answer
 
 ## Requirements
 
@@ -47,7 +49,9 @@ python index_papers.py
 
 ### 2. Ask Questions
 
-Start the interactive assistant:
+You can use either interface to interact with your papers:
+
+#### Command Line Interface
 
 ```bash
 python research_assistant.py
@@ -67,20 +71,22 @@ Photosynthesis is the process by which plants convert light energy into chemical
 
 Type `exit` or `quit` to stop.
 
-## Project Structure
+#### Web Interface (Streamlit)
 
+```bash
+streamlit run app.py
 ```
-.
-├── papers/                  # Place your PDF files here
-├── chroma_db/              # Vector database (auto-generated)
-├── index_papers.py       # Script to index PDFs
-├── research_assistant.py   # Interactive Q&A assistant
-└── README.md
-```
+
+This opens a web browser with an interactive chat interface featuring:
+- 💬 Chat-like conversation interface
+- 📚 Sidebar with paper statistics and usage instructions
+- 🔄 Reindex papers button
+
+The web interface automatically loads your indexed papers and provides a more user-friendly experience with persistent chat history within the session.
 
 ## Notes
 
 - Re-run `index_papers.py` whenever you add new papers
 - The embeddings model runs on Apple Silicon GPU (MPS) but can be changed to CPU
 - ChromaDB persists to disk, so indexing is only needed once per document set
-- Uses updated LangChain packages (`langchain-chroma`, `langchain-huggingface`, `langchain-ollama`) to avoid deprecation warnings
+
