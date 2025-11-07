@@ -27,7 +27,7 @@ This allows the model to answer questions using your specific documents rather t
 
 1. Install dependencies:
 ```bash
-pip install langchain langchain-community langchain-core chromadb sentence-transformers pypdf
+pip install -r requirements.txt
 ```
 
 2. Install Ollama and download the model:
@@ -83,3 +83,4 @@ Type `exit` or `quit` to stop.
 - Re-run `index_papers.py` whenever you add new papers
 - The embeddings model runs on Apple Silicon GPU (MPS) but can be changed to CPU
 - ChromaDB persists to disk, so indexing is only needed once per document set
+- Uses updated LangChain packages (`langchain-chroma`, `langchain-huggingface`, `langchain-ollama`) to avoid deprecation warnings

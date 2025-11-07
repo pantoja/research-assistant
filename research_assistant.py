@@ -1,6 +1,6 @@
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain_community.llms import Ollama
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
+from langchain_ollama import OllamaLLM
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -36,7 +36,7 @@ class ResearchAssistant:
             embedding_function=self.embeddings
         )
         
-        self.llm = Ollama(
+        self.llm = OllamaLLM(
             model=LLM_MODEL,
             temperature=0.3
         )
