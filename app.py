@@ -1,198 +1,149 @@
-import streamlit as st
+import gradio as gr
 from pathlib import Path
-import sys
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
+from langchain_ollama import OllamaLLM
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.prompts import ChatPromptTemplate
+from template import PROMPT_TEMPLATE
 
-st.set_page_config(
-    page_title="Research Assistant",
-    page_icon="🔬",
-    layout="wide"
-)
-
-st.title("🔬 Research Assistant")
-st.markdown("Ask questions about your scientific papers")
-
+# Configuration
 CHROMA_DIR = "chroma_db"
-if not Path(CHROMA_DIR).exists():
-    st.error("❌ ChromaDB not found. Please run indexing first:")
-    st.code("python indexar_papers.py", language="bash")
-    st.stop()
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+LLM_MODEL = "llama3.1:8b"
 
-@st.cache_resource
-def load_assistant():
-    from langchain_huggingface import HuggingFaceEmbeddings
-    from langchain_chroma import Chroma
-    from langchain_ollama import OllamaLLM
-    from langchain_core.prompts import ChatPromptTemplate
-    from langchain_core.output_parsers import StrOutputParser
-    from langchain_core.runnables import RunnablePassthrough
+# Load assistant once at startup
+print("🚀 Loading research assistant...")
+
+try:
+    embeddings = HuggingFaceEmbeddings(
+        model_name=EMBEDDING_MODEL,
+        model_kwargs={'device': 'cpu'}
+    )
     
-    EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-    LLM_MODEL = "llama3.1:8b"
+    vectorstore = Chroma(
+        persist_directory=CHROMA_DIR,
+        embedding_function=embeddings
+    )
     
-    PROMPT_TEMPLATE = """You are a scientific research assistant. Use the context from the papers below to answer the question.
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+    
+    llm = OllamaLLM(
+        model=LLM_MODEL,
+        temperature=0.3
+    )
+    
+    prompt = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
+    
+    # Create RAG chain using LCEL (LangChain Expression Language)
+    def format_docs(docs):
+        return "\n\n".join([d.page_content for d in docs])
+    
+    rag_chain = (
+        {"context": retriever | format_docs, "question": RunnablePassthrough()}
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+    
+    print("✅ Assistant ready!")
+    
+except Exception as e:
+    print(f"❌ Error loading assistant: {e}")
+    import traceback
+    traceback.print_exc()
+    rag_chain = None
+    retriever = None
 
-If the answer is not in the context, say "I couldn't find this information in the indexed papers."
-
-Always cite which paper the information came from (file name).
-
-Context from papers:
-{context}
-
-Question: {input}
-
-Detailed answer:"""
+def ask_question(question, history):
+    """Process question and return answer"""
+    if not rag_chain:
+        return "❌ Assistant not loaded. Run: python indexar_papers.py"
+    
+    if not question.strip():
+        return "Please ask a question."
     
     try:
-        embeddings = HuggingFaceEmbeddings(
-            model_name=EMBEDDING_MODEL,
-            model_kwargs={'device': 'cpu'}
-        )
+        # Get answer
+        answer = rag_chain.invoke(question)
         
-        vectorstore = Chroma(
-            persist_directory=CHROMA_DIR,
-            embedding_function=embeddings
-        )
+        # Get sources separately
+        docs = retriever.invoke(question)
         
-        llm = OllamaLLM(
-            model=LLM_MODEL,
-            temperature=0.3
-        )
+        # Extract unique sources
+        unique_sources = set()
+        for doc in docs:
+            if hasattr(doc, 'metadata') and 'source' in doc.metadata:
+                unique_sources.add(doc.metadata['source'])
         
-        retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+        # Format response with sources
+        if unique_sources:
+            answer += "\n\n📄 **Sources:**\n"
+            for source in sorted(unique_sources):
+                answer += f"- {source}\n"
         
-        prompt = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
-        
-        def format_docs(docs):
-            return "\n\n".join(doc.page_content for doc in docs)
-        
-        qa_chain = (
-            {"context": retriever | format_docs, "input": RunnablePassthrough()}
-            | prompt
-            | llm
-            | StrOutputParser()
-        )
-        
-        return qa_chain, vectorstore, retriever
+        return answer
         
     except Exception as e:
-        st.error(f"Error loading assistant: {e}")
         import traceback
-        st.code(traceback.format_exc())
-        return None, None, None
-with st.spinner("🔄 Loading research assistant..."):
-    result = load_assistant()
-    if result and len(result) == 3:
-        qa_chain, vectorstore, retriever = result
-    else:
-        qa_chain, vectorstore, retriever = None, None, None
+        return f"❌ Error: {str(e)}\n\n{traceback.format_exc()}"
 
-if qa_chain is None:
-    st.stop()
-
-st.success("✅ Assistant ready!")
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# Create Gradio interface
+with gr.Blocks(title="Research Assistant", theme=gr.themes.Soft()) as demo:
+    gr.Markdown("# 🔬 Research Assistant")
+    gr.Markdown("Ask questions about your scientific papers")
+    
+    chatbot = gr.Chatbot(
+        height=500,
+        show_label=False,
+        avatar_images=(None, "🤖")
+    )
+    
+    with gr.Row():
+        msg = gr.Textbox(
+            placeholder="Ask your question about the papers...",
+            show_label=False,
+            scale=4
+        )
+        submit = gr.Button("Send", scale=1, variant="primary")
+    
+    with gr.Accordion("ℹ️ Information", open=False):
+        gr.Markdown("""
+        **How to use:**
+        1. Add PDFs to `papers/` folder
+        2. Run `python indexar_papers.py`
+        3. Ask questions here!
         
-        if message["role"] == "assistant" and "sources" in message:
-            if message["sources"]:
-                st.markdown("---")
-                st.markdown("**📄 Sources:**")
-                for source in message["sources"]:
-                    st.markdown(f"- {source}")
-if prompt := st.chat_input("Ask your question about the papers..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-    
-    with st.chat_message("assistant"):
-        with st.spinner("🤔 Thinking..."):
-            try:
-                answer = qa_chain.invoke(prompt)
-                
-                source_docs = retriever.invoke(prompt)
-                
-                st.markdown(answer)
-                
-                unique_sources = set()
-                for doc in source_docs:
-                    if hasattr(doc, 'metadata') and 'source' in doc.metadata:
-                        unique_sources.add(doc.metadata['source'])
-                
-                if unique_sources:
-                    st.markdown("---")
-                    st.markdown("**📄 Sources:**")
-                    for source in sorted(unique_sources):
-                        st.markdown(f"- {source}")
-                
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": answer,
-                    "sources": list(unique_sources)
-                })
-                
-            except Exception as e:
-                error_msg = f"❌ Error processing question: {str(e)}"
-                st.error(error_msg)
-                
-                with st.expander("🐛 Show detailed error"):
-                    import traceback
-                    st.code(traceback.format_exc())
-                
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": error_msg,
-                    "sources": []
-                })
-with st.sidebar:
-    st.header("ℹ️ Information")
-    
-    try:
-        num_docs = vectorstore._collection.count()
-        st.metric("Indexed chunks", num_docs)
-    except:
-        st.metric("Indexed chunks", "N/A")
-    
-    st.markdown("---")
-    
-    st.markdown("**📚 How to use:**")
-    st.markdown("1. Add PDFs to `papers/` folder")
-    st.markdown("2. Run `python indexar_papers.py`")
-    st.markdown("3. Ask questions here!")
-    
-    st.markdown("---")
-    
-    if st.button("🔄 Reindex papers", use_container_width=True):
-        st.cache_resource.clear()
-        st.rerun()
-    
-    if st.button("🗑️ Clear chat history", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
-    
-    st.markdown("---")
-    
-    with st.expander("💡 Example questions"):
-        st.markdown("""
+        **Example questions:**
         - What datasets are mentioned?
         - Compare SR3 and SRDiff approaches
         - What metrics were used?
         - Summarize super-resolution techniques
-        - How to handle low-quality images?
         """)
     
-    st.markdown("---")
+    clear = gr.Button("🗑️ Clear Chat")
     
-    with st.expander("🔧 Debug info"):
-        st.write(f"**ChromaDB path:** `{CHROMA_DIR}`")
-        st.write(f"**Messages in history:** {len(st.session_state.messages)}")
-        
-        papers_path = Path("papers")
-        if papers_path.exists():
-            pdf_files = list(papers_path.glob("*.pdf"))
-            st.write(f"**PDFs in papers/:** {len(pdf_files)}")
-        else:
-            st.write("**PDFs in papers/:** Folder not found")
+    def user_message(user_msg, history):
+        return "", history + [[user_msg, None]]
+    
+    def bot_response(history):
+        user_msg = history[-1][0]
+        bot_msg = ask_question(user_msg, history)
+        history[-1][1] = bot_msg
+        return history
+    
+    msg.submit(user_message, [msg, chatbot], [msg, chatbot], queue=False).then(
+        bot_response, chatbot, chatbot
+    )
+    submit.click(user_message, [msg, chatbot], [msg, chatbot], queue=False).then(
+        bot_response, chatbot, chatbot
+    )
+    clear.click(lambda: None, None, chatbot, queue=False)
+
+if __name__ == "__main__":
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=7860,
+        share=False
+    )

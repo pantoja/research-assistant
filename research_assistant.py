@@ -4,23 +4,12 @@ from langchain_ollama import OllamaLLM
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from template import PROMPT_TEMPLATE
 
 CHROMA_DIR = "chroma_db"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 LLM_MODEL = "llama3.1:8b"
 
-PROMPT_TEMPLATE = """You are a scientific research assistant. Use the context from the papers below to answer the question.
-
-If the answer is not in the context, say "I could not find this information in the indexed papers."
-
-Always cite which paper the information came from (file name).
-
-Papers context:
-{context}
-
-Question: {input}
-
-Detailed answer:"""
 
 class ResearchAssistant:
     def __init__(self):

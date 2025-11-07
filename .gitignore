@@ -1,3 +1,5 @@
 chroma_db/
 papers/
 venv/
+__pycache__/
+*.pyc

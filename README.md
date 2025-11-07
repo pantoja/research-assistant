@@ -17,7 +17,7 @@ This allows the model to answer questions using your specific documents rather t
 - 🔍 Semantic search using embeddings
 - 💡 Context-aware answers with source citations
 - 🗨️ Interactive chat mode (CLI and Web UI)
-- 🌐 Streamlit web interface with chat history
+- 🌐 Gradio web interface with chat history
 - 📄 Source document citations for every answer
 
 ## Requirements
@@ -71,18 +71,21 @@ Photosynthesis is the process by which plants convert light energy into chemical
 
 Type `exit` or `quit` to stop.
 
-#### Web Interface (Streamlit)
+#### Web Interface (Gradio)
 
 ```bash
-streamlit run app.py
+python app.py
 ```
 
 This opens a web browser with an interactive chat interface featuring:
-- 💬 Chat-like conversation interface
-- 📚 Sidebar with paper statistics and usage instructions
-- 🔄 Reindex papers button
+- 💬 Modern chat-like conversation interface
+- 📚 Expandable information panel with usage instructions
+- �️ Clear chat history button
+- 💡 Example questions to get started
+- 🤖 Clean, responsive design with avatars
 
-The web interface automatically loads your indexed papers and provides a more user-friendly experience with persistent chat history within the session.
+The web interface automatically loads your indexed papers and provides a user-friendly experience with real-time chat and source citations.
+
 
 ## Notes
 
